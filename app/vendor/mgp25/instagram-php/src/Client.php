@@ -6,6 +6,7 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
 use GuzzleHttp\HandlerStack;
+use function GuzzleHttp\Psr7\modify_request;
 use InstagramAPI\Exception\InstagramException;
 use InstagramAPI\Exception\LoginRequiredException;
 use InstagramAPI\Exception\ServerMessageThrower;
@@ -14,7 +15,6 @@ use InstagramAPI\Middleware\ZeroRating;
 use LazyJsonMapper\Exception\LazyJsonMapperException;
 use Psr\Http\Message\RequestInterface as HttpRequestInterface;
 use Psr\Http\Message\ResponseInterface as HttpResponseInterface;
-use function GuzzleHttp\Psr7\modify_request;
 
 /**
  * This class handles core API network communication.
@@ -112,6 +112,23 @@ class Client
     private $_cookieJarLastSaved;
 
     /**
+     * The flag to force cURL to reopen a fresh connection.
+     *
+     * @var bool
+     */
+    private $_resetConnection;
+
+    /**
+     * The most recent request processed.
+     *
+     * Used for debugging failed requests in exceptions without needing to
+     * enable debug mode.
+     *
+     * @var Request
+     */
+    private $_lastRequest;
+
+    /**
      * Constructor.
      *
      * @param \InstagramAPI\Instagram $parent
@@ -151,6 +168,8 @@ class Client
             // We'll instead MANUALLY be throwing on certain other HTTP codes.
             'http_errors'     => false,
         ]);
+
+        $this->_resetConnection = false;
     }
 
     /**
@@ -359,6 +378,7 @@ class Client
         $value)
     {
         $this->_proxy = $value;
+        $this->_resetConnection = true;
     }
 
     /**
@@ -386,6 +406,7 @@ class Client
         $value)
     {
         $this->_outputInterface = $value;
+        $this->_resetConnection = true;
     }
 
     /**
@@ -616,6 +637,10 @@ class Client
         if (is_string($this->_outputInterface) && $this->_outputInterface !== '') {
             $finalOptions['curl'][CURLOPT_INTERFACE] = $this->_outputInterface;
         }
+        if ($this->_resetConnection) {
+            $finalOptions['curl'][CURLOPT_FRESH_CONNECT] = true;
+            $this->_resetConnection = false;
+        }
 
         return $finalOptions;
     }
@@ -774,7 +799,6 @@ class Client
                 // Keep the API's HTTPS connection alive in Guzzle for future
                 // re-use, to greatly speed up all further queries after this.
                 'Connection'       => 'Keep-Alive',
-                'X-FB-HTTP-Engine' => Constants::X_FB_HTTP_Engine,
                 'Accept'           => '*/*',
                 'Accept-Encoding'  => Constants::ACCEPT_ENCODING,
                 'Accept-Language'  => Constants::ACCEPT_LANGUAGE,
@@ -832,5 +856,26 @@ class Client
     public function zeroRating()
     {
         return $this->_zeroRating;
+    }
+
+    /**
+     * Sets the last processed request.
+     *
+     * @param Request $endpoint The last processed request
+     */
+    public function setLastRequest(
+        $endpoint)
+    {
+        $this->_lastRequest = $endpoint;
+    }
+
+    /**
+     * Gets the last processed point.
+     *
+     * @return Request
+     */
+    public function getLastRequest()
+    {
+        return $this->_lastRequest;
     }
 }

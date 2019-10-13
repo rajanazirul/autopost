@@ -6,6 +6,8 @@ use InstagramAPI\Constants;
 use InstagramAPI\Exception\InstagramException;
 use InstagramAPI\Exception\ThrottledException;
 use InstagramAPI\Exception\UploadFailedException;
+use InstagramAPI\Media\Constraints\ConstraintsFactory;
+use InstagramAPI\Media\Photo\PhotoDetails;
 use InstagramAPI\Request\Metadata\Internal as InternalMetadata;
 use InstagramAPI\Response;
 use InstagramAPI\Signatures;
@@ -25,20 +27,37 @@ class Direct extends RequestCollection
     /**
      * Get direct inbox messages for your account.
      *
-     * @param string|null $cursorId Next "cursor ID", used for pagination.
+     * @param string|null $cursorId           Next "cursor ID", used for pagination.
+     * @param int         $limit              Number of threads. From 0 to 20.
+     * @param int|null    $threadMessageLimit (optional) Number of messages per thread
+     * @param bool        $prefetch           (optional) Indicates if the request is called from prefetch.
      *
+     * @throws \InvalidArgumentException
      * @throws \InstagramAPI\Exception\InstagramException
      *
      * @return \InstagramAPI\Response\DirectInboxResponse
      */
     public function getInbox(
-        $cursorId = null)
+        $cursorId = null,
+        $limit = 0,
+        $threadMessageLimit = null,
+        $prefetch = false)
     {
+        if ($limit < 0 || $limit > 20) {
+            throw new \InvalidArgumentException('Invalid value provided to limit.');
+        }
         $request = $this->ig->request('direct_v2/inbox/')
             ->addParam('persistentBadging', 'true')
-            ->addParam('use_unified_inbox', 'true');
+            ->addParam('visual_message_return_type', 'unseen')
+            ->addParam('limit', $limit);
         if ($cursorId !== null) {
             $request->addParam('cursor', $cursorId);
+        }
+        if ($prefetch) {
+            $request->addHeader('X-IG-Prefetch-Request', 'foreground');
+        }
+        if ($threadMessageLimit !== null) {
+            $request->addParam('thread_message_limit', $threadMessageLimit);
         }
 
         return $request->getResponse(new Response\DirectInboxResponse());
@@ -189,7 +208,7 @@ class Direct extends RequestCollection
      *
      * @param string      $mode        Either "reshare" or "raven".
      * @param bool        $showThreads Whether to include existing threads into response.
-     * @param null|string $query       (optional) The user to search for.
+     * @param string|null $query       (optional) The user to search for.
      *
      * @throws \InstagramAPI\Exception\InstagramException
      *
@@ -582,6 +601,11 @@ class Direct extends RequestCollection
             throw new \InvalidArgumentException(sprintf('File "%s" is not available for reading.', $photoFilename));
         }
 
+        // validate width, height and aspect ratio of photo
+        $photoDetails = new PhotoDetails($photoFilename);
+        $photoDetails->validate(ConstraintsFactory::createFor(Constants::FEED_DIRECT));
+
+        // uplaod it
         return $this->_sendDirectItem('photo', $recipients, array_merge($options, [
             'filepath' => $photoFilename,
         ]));
@@ -612,6 +636,37 @@ class Direct extends RequestCollection
     {
         $internalMetadata = new InternalMetadata();
         $internalMetadata->setDirectRecipients($this->_prepareRecipients($recipients, true));
+        $internalMetadata->setStoryViewMode(Constants::STORY_VIEW_MODE_ONCE);
+
+        return $this->ig->internal->uploadSinglePhoto(Constants::FEED_DIRECT_STORY, $photoFilename, $internalMetadata, $externalMetadata);
+    }
+
+    /**
+     * Send a replayable photo (upload) via direct message to a user's inbox.
+     *
+     * @param array  $recipients       An array with "users" or "thread" keys.
+     *                                 To start a new thread, provide "users" as an array
+     *                                 of numerical UserPK IDs. To use an existing thread
+     *                                 instead, provide "thread" with the thread ID.
+     * @param string $photoFilename    The photo filename.
+     * @param array  $externalMetadata (optional) User-provided metadata key-value pairs.
+     *
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \InstagramAPI\Exception\InstagramException
+     *
+     * @return \InstagramAPI\Response\ConfigureResponse
+     *
+     * @see Internal::configureSinglePhoto() for available metadata fields.
+     */
+    public function sendReplayablePhoto(
+        array $recipients,
+        $photoFilename,
+        array $externalMetadata = [])
+    {
+        $internalMetadata = new InternalMetadata();
+        $internalMetadata->setDirectRecipients($this->_prepareRecipients($recipients, true));
+        $internalMetadata->setStoryViewMode(Constants::STORY_VIEW_MODE_REPLAYABLE);
 
         return $this->ig->internal->uploadSinglePhoto(Constants::FEED_DIRECT_STORY, $photoFilename, $internalMetadata, $externalMetadata);
     }
@@ -707,6 +762,38 @@ class Direct extends RequestCollection
     {
         $internalMetadata = new InternalMetadata();
         $internalMetadata->setDirectRecipients($this->_prepareRecipients($recipients, true));
+        $internalMetadata->setStoryViewMode(Constants::STORY_VIEW_MODE_ONCE);
+
+        return $this->ig->internal->uploadSingleVideo(Constants::FEED_DIRECT_STORY, $videoFilename, $internalMetadata, $externalMetadata);
+    }
+
+    /**
+     * Send a replayable video (upload) via direct message to a user's inbox.
+     *
+     * @param array  $recipients       An array with "users" or "thread" keys.
+     *                                 To start a new thread, provide "users" as an array
+     *                                 of numerical UserPK IDs. To use an existing thread
+     *                                 instead, provide "thread" with the thread ID.
+     * @param string $videoFilename    The video filename.
+     * @param array  $externalMetadata (optional) User-provided metadata key-value pairs.
+     *
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \InstagramAPI\Exception\InstagramException
+     * @throws \InstagramAPI\Exception\UploadFailedException If the video upload fails.
+     *
+     * @return \InstagramAPI\Response\ConfigureResponse
+     *
+     * @see Internal::configureSingleVideo() for available metadata fields.
+     */
+    public function sendReplayableVideo(
+        array $recipients,
+        $videoFilename,
+        array $externalMetadata = [])
+    {
+        $internalMetadata = new InternalMetadata();
+        $internalMetadata->setDirectRecipients($this->_prepareRecipients($recipients, true));
+        $internalMetadata->setStoryViewMode(Constants::STORY_VIEW_MODE_REPLAYABLE);
 
         return $this->ig->internal->uploadSingleVideo(Constants::FEED_DIRECT_STORY, $videoFilename, $internalMetadata, $externalMetadata);
     }
@@ -864,6 +951,7 @@ class Direct extends RequestCollection
      *                           of numerical UserPK IDs. To use an existing thread
      *                           instead, provide "thread" with the thread ID.
      * @param string $storyId    The story ID in Instagram's internal format (ie "3482384834_43294").
+     * @param string $reelId     The reel ID in Instagram's internal format (ie "highlight:12970012453081168")
      * @param array  $options    An associative array of additional parameters, including:
      *                           "media_type" (required) - either "photo" or "video";
      *                           "client_context" - predefined UUID used to prevent double-posting;
@@ -879,10 +967,20 @@ class Direct extends RequestCollection
     public function sendStory(
         array $recipients,
         $storyId,
+        $reelId = null,
         array $options = [])
     {
         if (!preg_match('#^\d+_\d+$#D', $storyId)) {
             throw new \InvalidArgumentException(sprintf('"%s" is not a valid story ID.', $storyId));
+        }
+        if ($reelId !== null) {
+            if (!preg_match('#^highlight:\d+$#D', $reelId)) {
+                throw new \InvalidArgumentException(sprintf('"%s" is not a valid reel ID.', $reelId));
+            }
+            $options = array_merge($options,
+                [
+                    'reel_id' => $reelId,
+                ]);
         }
         if (!isset($options['media_type'])) {
             throw new \InvalidArgumentException('Please provide media_type in options.');
@@ -893,6 +991,35 @@ class Direct extends RequestCollection
 
         return $this->_sendDirectItems('story_share', $recipients, array_merge($options, [
             'story_media_id' => $storyId,
+        ]));
+    }
+
+    /**
+     * Share an occurring or archived live stream via direct message to a user's inbox.
+     *
+     * You are able to share your own broadcasts, as well as broadcasts from
+     * other people.
+     *
+     * @param array  $recipients  An array with "users" or "thread" keys.
+     *                            To start a new thread, provide "users" as an array
+     *                            of numerical UserPK IDs. To use an existing thread
+     *                            instead, provide "thread" with the thread ID.
+     * @param string $broadcastId The broadcast ID in Instagram's internal format (ie "17854587811139572").
+     * @param array  $options     An associative array of optional parameters, including:
+     *                            "client_context" - predefined UUID used to prevent double-posting.
+     *
+     * @throws \InvalidArgumentException
+     * @throws \InstagramAPI\Exception\InstagramException
+     *
+     * @return Response\DirectSendItemResponse
+     */
+    public function sendLive(
+        array $recipients,
+        $broadcastId,
+        array $options = [])
+    {
+        return $this->_sendDirectItem('live', $recipients, array_merge($options, [
+            'broadcast_id' => $broadcastId,
         ]));
     }
 
@@ -1092,7 +1219,7 @@ class Direct extends RequestCollection
      * Send a direct message to specific users or thread.
      *
      * @param string $type       One of: "message", "like", "hashtag", "location", "profile", "photo",
-     *                           "video", "links".
+     *                           "video", "links", "live".
      * @param array  $recipients An array with "users" or "thread" keys.
      *                           To start a new thread, provide "users" as an array
      *                           of numerical UserPK IDs. To use an existing thread
@@ -1106,6 +1233,7 @@ class Direct extends RequestCollection
      *                           "photo" uses "client_context" and "filepath";
      *                           "video" uses "client_context", "upload_id" and "video_result";
      *                           "links" uses "client_context", "link_text" and "link_urls".
+     *                           "live" uses "client_context" and "text".
      *
      * @throws \InvalidArgumentException
      * @throws \InstagramAPI\Exception\InstagramException
@@ -1225,6 +1353,18 @@ class Direct extends RequestCollection
                 }
                 $request->addPost('node_type', $options['node_type']);
                 break;
+            case 'live':
+                $request = $this->ig->request('direct_v2/threads/broadcast/live_viewer_invite/');
+                // Check and set broadcast id.
+                if (!isset($options['broadcast_id'])) {
+                    throw new \InvalidArgumentException('No broadcast_id provided.');
+                }
+                $request->addPost('broadcast_id', $options['broadcast_id']);
+                // Set text if provided.
+                if (isset($options['text']) && strlen($options['text'])) {
+                    $request->addPost('text', $options['text']);
+                }
+                break;
             default:
                 throw new \InvalidArgumentException('Unsupported _sendDirectItem() type.');
         }
@@ -1315,6 +1455,10 @@ class Direct extends RequestCollection
                     throw new \InvalidArgumentException('No story_media_id provided.');
                 }
                 $request->addPost('story_media_id', $options['story_media_id']);
+                // Set text if provided.
+                if (isset($options['reel_id'])) {
+                    $request->addPost('reel_id', $options['reel_id']);
+                }
                 // Set text if provided.
                 if (isset($options['text']) && strlen($options['text'])) {
                     $request->addPost('text', $options['text']);

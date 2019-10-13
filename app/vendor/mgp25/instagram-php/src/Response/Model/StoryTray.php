@@ -13,19 +13,23 @@ use InstagramAPI\AutoPropertyMapper;
  * @method DismissCard getDismissCard()
  * @method mixed getExpiringAt()
  * @method bool getHasBestiesMedia()
+ * @method bool getHasPrideMedia()
+ * @method bool getHideFromFeedUnit()
  * @method string getId()
  * @method mixed getIsNux()
  * @method Item[] getItems()
  * @method string getLatestReelMedia()
  * @method Location getLocation()
+ * @method int getMediaCount()
+ * @method string[] getMediaIds()
  * @method mixed getMuted()
  * @method string getNuxId()
  * @method Owner getOwner()
- * @method mixed getPrefetchCount()
- * @method mixed getRankedPosition()
+ * @method int getPrefetchCount()
+ * @method string getRankedPosition()
  * @method string getReelType()
  * @method string getSeen()
- * @method mixed getSeenRankedPosition()
+ * @method string getSeenRankedPosition()
  * @method mixed getShowNuxTooltip()
  * @method mixed getSourceToken()
  * @method string getTitle()
@@ -37,11 +41,15 @@ use InstagramAPI\AutoPropertyMapper;
  * @method bool isDismissCard()
  * @method bool isExpiringAt()
  * @method bool isHasBestiesMedia()
+ * @method bool isHasPrideMedia()
+ * @method bool isHideFromFeedUnit()
  * @method bool isId()
  * @method bool isIsNux()
  * @method bool isItems()
  * @method bool isLatestReelMedia()
  * @method bool isLocation()
+ * @method bool isMediaCount()
+ * @method bool isMediaIds()
  * @method bool isMuted()
  * @method bool isNuxId()
  * @method bool isOwner()
@@ -61,19 +69,23 @@ use InstagramAPI\AutoPropertyMapper;
  * @method $this setDismissCard(DismissCard $value)
  * @method $this setExpiringAt(mixed $value)
  * @method $this setHasBestiesMedia(bool $value)
+ * @method $this setHasPrideMedia(bool $value)
+ * @method $this setHideFromFeedUnit(bool $value)
  * @method $this setId(string $value)
  * @method $this setIsNux(mixed $value)
  * @method $this setItems(Item[] $value)
  * @method $this setLatestReelMedia(string $value)
  * @method $this setLocation(Location $value)
+ * @method $this setMediaCount(int $value)
+ * @method $this setMediaIds(string[] $value)
  * @method $this setMuted(mixed $value)
  * @method $this setNuxId(string $value)
  * @method $this setOwner(Owner $value)
- * @method $this setPrefetchCount(mixed $value)
- * @method $this setRankedPosition(mixed $value)
+ * @method $this setPrefetchCount(int $value)
+ * @method $this setRankedPosition(string $value)
  * @method $this setReelType(string $value)
  * @method $this setSeen(string $value)
- * @method $this setSeenRankedPosition(mixed $value)
+ * @method $this setSeenRankedPosition(string $value)
  * @method $this setShowNuxTooltip(mixed $value)
  * @method $this setSourceToken(mixed $value)
  * @method $this setTitle(string $value)
@@ -85,11 +97,15 @@ use InstagramAPI\AutoPropertyMapper;
  * @method $this unsetDismissCard()
  * @method $this unsetExpiringAt()
  * @method $this unsetHasBestiesMedia()
+ * @method $this unsetHasPrideMedia()
+ * @method $this unsetHideFromFeedUnit()
  * @method $this unsetId()
  * @method $this unsetIsNux()
  * @method $this unsetItems()
  * @method $this unsetLatestReelMedia()
  * @method $this unsetLocation()
+ * @method $this unsetMediaCount()
+ * @method $this unsetMediaIds()
  * @method $this unsetMuted()
  * @method $this unsetNuxId()
  * @method $this unsetOwner()
@@ -109,10 +125,13 @@ class StoryTray extends AutoPropertyMapper
     const JSON_PROPERTY_MAP = [
         'id'                   => 'string',
         'items'                => 'Item[]',
+        'hide_from_feed_unit'  => 'bool',
+        'media_ids'            => 'string[]',
+        'has_pride_media'      => 'bool',
         'user'                 => 'User',
         'can_reply'            => '',
         'expiring_at'          => '',
-        'seen_ranked_position' => '',
+        'seen_ranked_position' => 'string',
         /*
          * The "taken_at" timestamp of the last story media you have seen for
          * that user (the current tray's user). Defaults to `0` (not seen).
@@ -122,11 +141,11 @@ class StoryTray extends AutoPropertyMapper
          * Unix "taken_at" timestamp of the newest item in their story reel.
          */
         'latest_reel_media'      => 'string',
-        'ranked_position'        => '',
+        'ranked_position'        => 'string',
         'is_nux'                 => '',
         'show_nux_tooltip'       => '',
         'muted'                  => '',
-        'prefetch_count'         => '',
+        'prefetch_count'         => 'int',
         'location'               => 'Location',
         'source_token'           => '',
         'owner'                  => 'Owner',
@@ -138,5 +157,6 @@ class StoryTray extends AutoPropertyMapper
         'unique_integer_reel_id' => 'string',
         'cover_media'            => 'CoverMedia',
         'title'                  => 'string',
+        'media_count'            => 'int',
     ];
 }
