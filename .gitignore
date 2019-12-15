@@ -31,3 +31,4 @@ app/inc/license
 
 # DB Config
 app/config/db.config.php
+app/config/*
