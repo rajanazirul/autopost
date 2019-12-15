@@ -28,3 +28,6 @@ assets/uploads/temp/*
 
 # License file
 app/inc/license
+
+# DB Config
+app/config/db.config.php
